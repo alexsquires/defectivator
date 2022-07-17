@@ -5,7 +5,9 @@ from ase.build import bulk
 from pymatgen.io.ase import AseAtomsAdaptor
 
 from defect import Defect
+
 tst_structure = AseAtomsAdaptor.get_structure(bulk("LiF", "rocksalt", 4.1, cubic=True))
+
 
 class TestDefect(unittest.TestCase):
     def setUp(self) -> None:
@@ -35,9 +37,7 @@ class TestDefect(unittest.TestCase):
         assert len(structures) == 3
         for structure in structures:
             assert (
-                structure.charge == 1
-                or structure.charge == 2
-                or structure.charge == 3
+                structure.charge == 1 or structure.charge == 2 or structure.charge == 3
             )
 
 

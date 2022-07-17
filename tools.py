@@ -69,11 +69,18 @@ def charge_identity(atom: str, charge_tol: float) -> str:
 
 
 def get_prim_to_bulk_map(
-    host_structure: Structure, primitive_structure: Structure
+    primitive_structure: "pymatgen.core.Structure",
+    host_structure: "pymatgen.core.Structure",
 ) -> "np.Array[np.Array]":
     """
     Generate a transformation matrix between the of the primitive structure
-    and the bulk structure
+    and the bulk structure.
+
+    args:
+        primitive_structure: primitive_structure for the defect structure to
+            relate to
+        host_structure: the defect supercell to be related back to the primitive
+            structure
     """
     lattice = host_structure.get_reduced_structure().lattice
     prim_lattice = primitive_structure.get_reduced_structure().lattice
@@ -82,12 +89,11 @@ def get_prim_to_bulk_map(
 
 
 def map_prim_defect_to_supercell(
-    structure: Structure,
+    structure: "pymatgen.core.Structure",
     defect_site: list[float],
     host: str,
-    host_structure: Structure,
-    primitive_structure: Structure,
-) -> Structure:
+    primitive_structure: "pymatgen.core.species",
+) -> "pymatgen.core.species":
     """ """
     site_type = []
     for site in structure:
@@ -96,7 +102,9 @@ def map_prim_defect_to_supercell(
         else:
             site_type.append("native")
     structure.add_site_property("site_type", site_type)
-    mapping = get_prim_to_bulk_map(primitive_structure = primitive_structure, host_structure = host_structure)
+    mapping = get_prim_to_bulk_map(
+        primitive_structure=primitive_structure, host_structure=structure
+    )
     structure.make_supercell(mapping)
     defects = [
         i for i, j in enumerate(structure) if j.properties["site_type"] == "defect"
@@ -110,9 +118,20 @@ def map_prim_defect_to_supercell(
     return structure
 
 
-def generate_interstitial_template(structure, interstitial_scheme="voronoi"):
+def generate_interstitial_template(
+    structure: "pymatgen.core.Structure", interstitial_scheme: str = "voronoi"
+):
     """
-    Generate interstitials
+    Generate interstitials based on search strategies in pymatgen.
+
+    args:
+        structure (pymatgen.core.Structure): structure to search for interstitials
+            in
+        interstitial_schmeme (str):
+            - "voronoi" uses the TopographyAnalyzer in
+              `pymatgen.analysis.defect.utils`
+            - "infit" uses the StructureMotifInterstitial in
+              `pymatgen.analysis.defect.utils`
     """
     structure = deepcopy(structure)
     if interstitial_scheme == "infit":
@@ -127,3 +146,25 @@ def generate_interstitial_template(structure, interstitial_scheme="voronoi"):
         interstitial_generator.remove_collisions()
         structure = interstitial_generator.get_structure_with_nodes()
     return structure
+
+
+def group_ions(species, atom_type, charge_tol=5):
+    """given a list of atoms, find all the cations
+    or anions depending on the atom_type arg
+
+    args:
+        species (list[str]): list of atoms to pick out all the anions or cations
+        atoms_type (str): whether to search for ions classed as "anion" or "cation"
+        charge_tol (float): charge_tolerance to pass to charge_indentity
+
+    returns:
+        ions (list[str]): list of atoms which have been defined as either anions
+            or cations.
+    """
+    ions = [
+        a
+        for a in species
+        if charge_identity(a, charge_tol) == atom_type
+        or charge_identity(a, charge_tol) == "both"
+    ]
+    return ions

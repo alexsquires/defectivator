@@ -6,16 +6,28 @@ import numpy as np
 
 @dataclass
 class Defect:
-    """Class which describes a Defect in a structure"""
+    """Class which describes a defect in a periodic structure
+    
+    args:
+        structure (pmg.Structure): structure object that describes the defect
+        charges (list[int]): list of integers descibing the charge states the 
+            defect can adopt
+        degeneracy (int): integer describing the site degeneracy of the defined 
+            defect
+        name (str): a unique label that can be used to distinguish the defect
+        center (bool): whether to shift the origin of the cell such that the 
+            defect is at fraction coordinates [0.5, 0.5, 0.5]
+    """
 
-    structure: Structure
-    charges: list
+    structure: "pymatgen.core.Structure"
+    charges: list[int]
     degeneracy: int
     name: str
     center: bool = True
 
     def __post_init__(self):
         if self.center:
+            # shift the defect to fraction coordinates [0.5, 0.5, 0.5]
             defect_site = [
                 i.frac_coords
                 for i in self.structure
@@ -28,6 +40,7 @@ class Defect:
                 [i for i in range(len(self.structure))], [0.5, 0.5, 0.5]
             )
         if "X" in self.structure.symbol_set:
+            # remove any dummy atoms from the structure
             self.structure.remove_species(["X0+"])
 
     def charge_decorate_structures(self) -> list[Structure]:

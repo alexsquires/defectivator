@@ -1,36 +1,50 @@
-from pymatgen.core.structure import Structure
-from pymatgen.analysis.defects.utils import (
-    StructureMotifInterstitial,
-    TopographyAnalyzer,
-)
 from pymatgen.io.vasp import Kpoints, Incar
 from pymatgen.io.vasp.sets import DictSet
 from bsym.interface.pymatgen import unique_structure_substitutions
 from tools import (
     get_charges,
-    charge_identity,
     map_prim_defect_to_supercell,
     extend_list_to_zero,
     generate_interstitial_template,
+    group_ions,
 )
 from dataclasses import dataclass
-from itertools import permutations
+from itertools import permutations, product
 import numpy as np
 from defect import Defect
 
 
 @dataclass
 class DefectSet:
-    host_structure: Structure
+    """class for generating point defects in a structure
+
+    args:
+        host_structure (pymatgen.core.Structure): the structure to generate
+            point defects within
+        extrinsic_species (list[str] or None): any species to include as dopants
+        charge_tol (float): charge_tolerance cutoff to feed to get_charges
+            (see defectivator.tools.get_charges)
+        interstitial_scheme: scheme for searching/generating interstitials
+            (see defectivator.tools.generate_interstitial_template)
+        center_defects (bool): whether or not the Defect objects generated are
+            shifted such that the defect sits at the center of the structure.
+    """
+
+    host_structure: "pymatgen.core.Structure"
+    extrinsic_species: list = None
     charge_tol: float = 5
     interstitial_scheme: str = "voronoi"
+    center_defects: bool = True
 
     def __post_init__(self):
         self.primitive_structure = self.host_structure.get_primitive_structure()
         self._get_cations_and_anions()
         self.vacancies = self._generate_all_vacancies()
         self.antisites = self._generate_all_antisites()
+        if self.extrinsic_species != None:
+            self.substitutions = self._generate_all_dopant_substiutions()
         if self.interstitial_scheme != None:
+            # find interstitials only if an interstitial scheme is specified
             self.interstitial_template = generate_interstitial_template(
                 self.primitive_structure
             )
@@ -68,6 +82,9 @@ class DefectSet:
         distinct vacancies, and return a list of `Defect` objects defining their
         relactive charges and site degeneracies (site degenceracy is reported
         as the site degeneracy of the defect in the **primitive** cell)
+
+        returns:
+             vacancies (list[Defect]): list of instrinsic vacancy defects
         """
         vacancies = []
         for k, v in self.primitive_structure.composition.items():
@@ -80,27 +97,44 @@ class DefectSet:
                 defect_site = [i.frac_coords for i in s if i.species_string == "X0+"][0]
                 degeneracy = s.number_of_equivalent_configurations
                 s = map_prim_defect_to_supercell(
-                    s, defect_site, host=k, host_structure=self.host_structure, primitive_structure=self.primitive_structure
+                    s,
+                    defect_site,
+                    host=k,
+                    primitive_structure=self.primitive_structure,
                 )
-                vacancies.append(Defect(s, charges, degeneracy, f"v_{k}_{i+1}"))
+                vacancies.append(
+                    Defect(
+                        s,
+                        charges,
+                        degeneracy,
+                        f"v_{k}_{i+1}",
+                        center=self.center_defects,
+                    )
+                )
         return vacancies
 
     def _get_cations_and_anions(self):
+        """taking all the intrisic atoms and extrinsic dopants (if any)
+        define them all as anions or cations, and add these as atributies
+        of the defect set.
+        """
         atoms = self.primitive_structure.symbol_set
-        cations = [
-            a
-            for a in atoms
-            if charge_identity(a, self.charge_tol) == "cation"
-            or charge_identity(a, self.charge_tol) == "both"
-        ]
-        anions = [
-            a
-            for a in atoms
-            if charge_identity(a, self.charge_tol) == "anion"
-            or charge_identity(a, self.charge_tol) == "both"
-        ]
-        self.cations = cations
+        cations = group_ions(atoms, "cation", 5)
+        anions = group_ions(atoms, "anion", 5)
         self.anions = anions
+        self.cations = cations
+
+        # if there are any extrinsic species, also determine whether
+        # these are anions or cations
+        if self.extrinsic_species != None:
+            dopants = self.extrinsic_species
+            dopant_cations = group_ions(dopants, "cation", 5)
+            dopant_anions = group_ions(dopants, "anion", 5)
+            self.dopant_cations = dopant_cations
+            self.dopant_anions = dopant_anions
+        else:
+            self.dopant_cations = []
+            self.dopant_anions = []
 
     def _get_antisites(self, antisite_elements: list[str]):
         composition = self.primitive_structure.composition
@@ -122,8 +156,7 @@ class DefectSet:
                     antisite,
                     defect_site,
                     host=native,
-                    host_structure=self.host_structure,
-                    primitive_structure=self.primitive_structure
+                    primitive_structure=self.primitive_structure,
                 )
                 antisites.append(
                     Defect(
@@ -131,13 +164,55 @@ class DefectSet:
                         antisite_charges,
                         degeneracy,
                         f"{native}_{substituent}_{i+1}",
+                        center=self.center_defects,
                     )
                 )
         return antisites
 
+    def _generate_all_dopant_substiutions(self):
+
+        composition = self.primitive_structure.composition
+        all_substitutions = []
+        if self.dopant_cations != []:
+            substitutions = list(product(self.dopant_cations, self.cations))
+
+        for substituent, native in substitutions:
+            live_substitutions = unique_structure_substitutions(
+                self.primitive_structure,
+                native,
+                {"X": int(1), native: int(composition[native] - 1)},
+            )
+            substitution_charges = self._get_antisite_charges(native, substituent)
+            for i, sub in enumerate(live_substitutions):
+                defect_site = [
+                    i.frac_coords for i in sub if i.species_string == "X0+"
+                ][0]
+                degeneracy = sub.number_of_equivalent_configurations
+                sub.replace_species({"X0+": substituent})
+                substitution = map_prim_defect_to_supercell(
+                    sub,
+                    defect_site,
+                    host=native,
+                    primitive_structure=self.primitive_structure,
+                )
+                all_substitutions.append(
+                    Defect(
+                        substitution,
+                        substitution_charges,
+                        degeneracy,
+                        f"{native}_{substituent}_{i+1}",
+                        center=self.center_defects,
+                    )
+                )
+        return all_substitutions
+
     def _generate_all_antisites(self):
         """
         Generate antisites
+
+        returns:
+            list[Defect]: a list of defects representing all
+            the intrinsic antisites
         """
         cation_antites = self._get_antisites(self.cations)
         anion_antites = self._get_antisites(self.anions)
@@ -146,9 +221,17 @@ class DefectSet:
     def _populate_interstitial_sites(self):
         """
         Populate interstitial sites
+
+        returns:
+            list[Defect]: a list of defects representing all
+            the interstitals in the host structure.
         """
         interstitials = []
-        for atom in self.primitive_structure.symbol_set:
+        atoms = list(
+            self.anions + self.cations + self.dopant_anions + self.dopant_cations
+        )
+
+        for atom in atoms:
             charges = get_charges(str(atom), self.charge_tol)
             live_interstitals = unique_structure_substitutions(
                 self.interstitial_template,
@@ -164,8 +247,7 @@ class DefectSet:
                     interstitial,
                     defect_site,
                     host=None,
-                    host_structure=self.host_structure,
-                    primitive_structure=self.primitive_structure
+                    primitive_structure=self.primitive_structure,
                 )
                 interstitials.append(
                     Defect(
@@ -173,12 +255,15 @@ class DefectSet:
                         charges,
                         interstitial.number_of_equivalent_configurations,
                         f"{atom}_i_{i+1}",
+                        center=self.center_defects,
                     )
                 )
         return interstitials
 
     def make_defect_calcs(self, dict_set, calc_type):
-        for defect in self.vacancies + self.interstitials + self.antisites:
+        for defect in (
+            self.vacancies + self.interstitials + self.antisites + self.substitutions
+        ):
             all_charge_states = defect.charge_decorate_structures()
             if calc_type == "gam":
                 for charge_state in all_charge_states:

@@ -48,9 +48,9 @@ class DefectComplexMaker:
             {
                 "X": int(self.n_associated_defects),
                 self._associated_species: int(n_native - self.n_associated_defects),
-            }
+            },
         )
-            
+
         for sub in substitutions:
             sub.remove_species(["X"])
             all_complexes.append(sub)
@@ -66,8 +66,10 @@ class DefectComplexMaker:
             self._associated_species_native,
             {
                 self._associated_species_substituent: int(self.n_associated_defects),
-                self._associated_species_native: int(n_native - self.n_associated_defects),
-            }
+                self._associated_species_native: int(
+                    n_native - self.n_associated_defects
+                ),
+            },
         )
         for sub in substitutions:
             all_complexes.append(sub)
