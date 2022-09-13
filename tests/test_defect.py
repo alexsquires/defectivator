@@ -1,10 +1,8 @@
 import unittest
-from unittest.mock import Mock
-from pymatgen.core import Structure
 from ase.build import bulk
 from pymatgen.io.ase import AseAtomsAdaptor
 
-from defect import Defect
+from defectivator.defect import Defect
 
 tst_structure = AseAtomsAdaptor.get_structure(bulk("LiF", "rocksalt", 4.1, cubic=True))
 

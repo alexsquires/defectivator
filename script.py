@@ -1,6 +1,6 @@
 from fileinput import filename
-from point_defects import DefectSet
-from defect_complexes import DefectComplexMaker
+from defectivator.point_defects import DefectSet
+from defectivator.defect_complexes import DefectComplexMaker
 from ase.build import bulk
 from pymatgen.io.ase import AseAtomsAdaptor
 from ase.build import make_supercell
@@ -17,4 +17,4 @@ ds = DefectSet(
     charge_tol=5,
     interstitial_scheme="voronoi",
 )
-print(ds.substitutions)
+print(ds.vacancies)

@@ -1,3 +1,4 @@
+from asyncio.unix_events import DefaultEventLoopPolicy
 from pymatgen.io.vasp import Kpoints, Incar
 from pymatgen.io.vasp.sets import DictSet
 from bsym.interface.pymatgen import unique_structure_substitutions
@@ -137,6 +138,11 @@ class DefectSet:
             self.dopant_anions = []
 
     def _get_antisites(self, antisite_elements: list[str]):
+        """
+        get all possible cation and anion substitutions in the material.
+        If a species can exhibit both catio and anion-like behviour, substitutions
+        will be generated for both ion types.
+        """
         composition = self.primitive_structure.composition
         antisites = []
         for native, substituent in permutations(antisite_elements, 2):
@@ -206,7 +212,7 @@ class DefectSet:
                 )
         return all_substitutions
 
-    def _generate_all_antisites(self):
+    def _generate_all_antisites(self) -> list[DefaultEventLoopPolicy]:
         """
         Generate antisites
 
@@ -218,7 +224,7 @@ class DefectSet:
         anion_antites = self._get_antisites(self.anions)
         return cation_antites + anion_antites
 
-    def _populate_interstitial_sites(self):
+    def _populate_interstitial_sites(self) -> list[Defect]:
         """
         Populate interstitial sites
 
@@ -260,7 +266,18 @@ class DefectSet:
                 )
         return interstitials
 
-    def make_defect_calcs(self, dict_set, calc_type):
+    def make_defect_calcs(self, dict_set: "pymatgen.io.vasp.set.DictSet", calc_type: str) -> None:
+        """
+        taking all defects in the point DefectSet, write vasp calculations
+        given a pymatgen.io.vasp.sets.DictSet object, and wether or not the calculation
+        should be gamma only (useful for a down-sampled first-pass on defect energies)
+        
+        ##TODO: currently only accepts `gam`: `std` and `ncl` should also be options
+
+        args:
+            dict_set (pymatgen.io.vasp.sets.DictSet):
+            calc_type(str):  
+        """
         for defect in (
             self.vacancies + self.interstitials + self.antisites + self.substitutions
         ):

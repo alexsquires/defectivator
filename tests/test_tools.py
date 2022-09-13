@@ -1,6 +1,5 @@
 import unittest
-from unittest.mock import Mock
-from tools import extend_list_to_zero, charge_identity, generate_interstitial_template, get_charges, get_prim_to_bulk_map, group_ions
+from defectivator.tools import extend_list_to_zero, charge_identity, generate_interstitial_template, get_charges, get_prim_to_bulk_map, group_ions
 from numpy.testing import assert_equal
 
 from ase.build import bulk
@@ -62,7 +61,7 @@ class testTools(unittest.TestCase):
         # assert len(generate_interstitial_template(tst_prim, "infit")) == 2
         assert len(generate_interstitial_template(tst_prim, "voronoi")) == 4
 
-    def test_map_prim_defect_to_supercell(self):
+    #def test_map_prim_defect_to_supercell(self):
         
 
 if __name__ == "__main__":
