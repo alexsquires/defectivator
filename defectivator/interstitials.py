@@ -3,6 +3,8 @@ from collections import defaultdict
 import itertools
 import numpy as np
 from pymatgen.analysis.phase_diagram import get_facets
+from pymatgen.core import Lattice
+from pymatgen.util.coord import pbc_diff
 
 def calculate_vol(coords):
     """
@@ -100,13 +102,8 @@ class InterstitialMap:
     def __init__(
         self,
         structure,
-        framework_ions,
-        cations,
         tol=0.0001,
-        max_cell_range=1,
         check_volume=True,
-        constrained_c_frac=0.5,
-        thickness=0.5,
     ):
         """
         Init.
@@ -169,7 +166,6 @@ class InterstitialMap:
         # Vnodes store all the valid voronoi polyhedra. Cation vnodes store
         # the voronoi polyhedra that are already occupied by existing cations.
         vnodes = []
-        cation_vnodes = []
 
         def get_mapping(poly):
             """
@@ -201,6 +197,10 @@ class InterstitialMap:
         self.framework = framework
         if check_volume:
             self.check_volume()
+
+        for node in vnodes:
+            structure.append("X", node.frac_coords)
+        self.interstitial_map = structure
 
     def check_volume(self):
         """
