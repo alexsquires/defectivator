@@ -2,9 +2,34 @@ from scipy.spatial import Voronoi
 from collections import defaultdict
 import itertools
 import numpy as np
-from pymatgen.analysis.phase_diagram import get_facets
 from pymatgen.core import Lattice
 from pymatgen.util.coord import pbc_diff
+from scipy.spatial import ConvexHull
+
+
+def get_facets(qhull_data):
+    """
+    Get the simplex facets for the Convex hull.
+    Args:
+        qhull_data (np.ndarray): The data from which to construct the convex
+            hull as a Nxd array (N being number of data points and d being the
+            dimension)
+        joggle (boolean): Whether to joggle the input to avoid precision
+            errors.
+    Returns:
+        List of simplices of the Convex Hull.
+    """
+    return ConvexHull(qhull_data, qhull_options="QJ i").simplices
+
+def get_mapping(poly, vnodes, tol):
+    """
+    Helper function to check if a vornoi poly is a periodic image
+    of one of the existing voronoi polys.
+    """
+    for v in vnodes:
+        if v.is_image(poly, tol):
+            return v
+    return None
 
 def calculate_vol(coords):
     """
@@ -167,16 +192,6 @@ class InterstitialMap:
         # the voronoi polyhedra that are already occupied by existing cations.
         vnodes = []
 
-        def get_mapping(poly):
-            """
-            Helper function to check if a vornoi poly is a periodic image
-            of one of the existing voronoi polys.
-            """
-            for v in vnodes:
-                if v.is_image(poly, tol):
-                    return v
-            return None
-
         # Filter all the voronoi polyhedra so that we only consider those
         # which are within the unit cell.
         for i, vertex in enumerate(voro.vertices):
@@ -188,7 +203,7 @@ class InterstitialMap:
                 if len(vnodes) == 0:
                     vnodes.append(poly)
                 else:
-                    ref = get_mapping(poly)
+                    ref = get_mapping(poly, vnodes, tol)
                     if ref is None:
                         vnodes.append(poly)
 
