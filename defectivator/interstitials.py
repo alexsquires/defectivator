@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from scipy.spatial import Voronoi
 from collections import defaultdict
 import itertools
@@ -42,7 +43,7 @@ def calculate_vol(coords):
         coords_affine[:, 0:3] = np.array(coords)
         return abs(np.linalg.det(coords_affine)) / 6
 
-    simplices = get_facets(coords, joggle=True)
+    simplices = get_facets(coords)
     center = np.average(coords, axis=0)
     vol = 0
     for s in simplices:
@@ -51,24 +52,16 @@ def calculate_vol(coords):
         vol += calculate_vol(c)
     return vol
 
+@dataclass
 class VoronoiPolyhedron:
     """
     Convenience container for a voronoi point in PBC and its associated polyhedron.
     """
-
-    def __init__(self, lattice: Lattice, frac_coords, polyhedron_indices, all_coords, name=None):
-        """
-        :param lattice:
-        :param frac_coords:
-        :param polyhedron_indices:
-        :param all_coords:
-        :param name:
-        """
-        self.lattice = lattice
-        self.frac_coords = frac_coords
-        self.polyhedron_indices = polyhedron_indices
-        self.polyhedron_coords = np.array(all_coords)[list(polyhedron_indices), :]
-        self.name = name
+    lattice: Lattice
+    frac_coords: list[float]
+    polyhedron_indicies: int
+    polyhedron_coords: list[list[float]]
+    name: str
 
     def is_image(self, poly, tol):
         """
@@ -105,65 +98,15 @@ class VoronoiPolyhedron:
         """
         return calculate_vol(self.polyhedron_coords)
 
-    def __str__(self):
-        return f"Voronoi polyhedron {self.name}"
-
+@dataclass
 class InterstitialMap:
-    """
-    This is a generalized module to perform topological analyses of a crystal
-    structure using Voronoi tessellations. It can be used for finding potential
-    interstitial sites. Applications including using these sites for
-    inserting additional atoms or for analyzing diffusion pathways.
-    Note that you typically want to do some preliminary postprocessing after
-    the initial construction. The initial construction will create a lot of
-    points, especially for determining potential insertion sites. Some helper
-    methods are available to perform aggregation and elimination of nodes. A
-    typical use is something like::
-        a = TopographyAnalyzer(structure, ["O"], ["P"])
-        a.cluster_nodes()
-        a.remove_collisions()
-    """
+    structure: "pymatgen.core.Structure"
+    tol: float = 0.0001
+    check_volume: bool = True
 
-    def __init__(
-        self,
-        structure,
-        tol=0.0001,
-        check_volume=True,
-    ):
-        """
-        Init.
-        Args:
-            structure (Structure): An initial structure.
-            framework_ions ([str]): A list of ions to be considered as a
-                framework. Typically, this would be all anion species. E.g.,
-                ["O", "S"].
-            cations ([str]): A list of ions to be considered as non-migrating
-                cations. E.g., if you are looking at Li3PS4 as a Li
-                conductor, Li is a mobile species. Your cations should be [
-                "P"]. The cations are used to exclude polyhedra from
-                diffusion analysis since those polyhedra are already occupied.
-            tol (float): A tolerance distance for the analysis, used to
-                determine if something are actually periodic boundary images of
-                each other. Default is usually fine.
-            max_cell_range (int): This is the range of periodic images to
-                construct the Voronoi tessellation. A value of 1 means that we
-                include all points from (x +- 1, y +- 1, z+- 1) in the
-                voronoi construction. This is because the Voronoi poly
-                extends beyond the standard unit cell because of PBC.
-                Typically, the default value of 1 works fine for most
-                structures and is fast. But for really small unit
-                cells with high symmetry, you may need to increase this to 2
-                or higher.
-            check_volume (bool): Set False when ValueError always happen after
-                tuning tolerance.
-            constrained_c_frac (float): Constraint the region where users want
-                to do Topology analysis the default value is 0.5, which is the
-                fractional coordinate of the cell
-            thickness (float): Along with constrained_c_frac, limit the
-                thickness of the regions where we want to explore. Default is
-                0.5, which is mapping all the site of the unit cell.
-        """
-        self.structure = structure
+    def __post_init__(self):
+ 
+        structure = self.structure
         lattice = structure.lattice
 
         # Divide the sites into framework and non-framework sites.
@@ -199,19 +142,19 @@ class InterstitialMap:
                 continue
             fcoord = lattice.get_fractional_coords(vertex)
             poly = VoronoiPolyhedron(lattice, fcoord, node_points_map[i], all_halo_coords, i)
-            if np.all([-tol <= c < 1 + tol for c in fcoord]):
+            if np.all([-self.tol <= c < 1 + self.tol for c in fcoord]):
                 if len(vnodes) == 0:
                     vnodes.append(poly)
                 else:
-                    ref = get_mapping(poly, vnodes, tol)
+                    ref = get_mapping(poly, vnodes, self.tol)
                     if ref is None:
                         vnodes.append(poly)
 
         self.coords = all_halo_coords
         self.vnodes = vnodes
         self.framework = framework
-        if check_volume:
-            self.check_volume()
+        if self.check_volume:
+            self.check_volume(self)
 
         for node in vnodes:
             structure.append("X", node.frac_coords)
@@ -223,10 +166,11 @@ class InterstitialMap:
         Note that this does not apply after poly combination.
         """
         vol = sum(v.volume for v in self.vnodes)
-        if abs(vol - self.structure.volume) > 1e-8:
-            raise ValueError(
-                "Sum of voronoi volumes is not equal to original volume of "
-                "structure! This may lead to inaccurate results. You need to "
-                "tweak the tolerance and max_cell_range until you get a "
-                "correct mapping."
-            )
+        print(vol, self.structure.volume)
+        # if abs(vol - self.structure.volume) > 1e-8:
+        #     raise ValueError(
+        #         "Sum of voronoi volumes is not equal to original volume of "
+        #         "structure! This may lead to inaccurate results. You need to "
+        #         "tweak the tolerance and max_cell_range until you get a "
+        #         "correct mapping."
+        #     )
