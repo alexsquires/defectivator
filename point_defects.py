@@ -3,6 +3,7 @@ from pymatgen.io.vasp.sets import DictSet
 from bsym.interface.pymatgen import unique_structure_substitutions
 from tools import (
     get_charges,
+    get_prim_to_bulk_map,
     map_prim_defect_to_supercell,
     extend_list_to_zero,
     generate_interstitial_template,
@@ -51,6 +52,9 @@ class DefectSet:
             self.interstitials = self._populate_interstitial_sites()
         else:
             self.interstitials = []
+
+        # get mapping EXPERIMENTAL!
+        self.mapping = get_prim_to_bulk_map(self.primitive_structure, self.host_structure)
 
     def _get_antisite_charges(self, site, sub) -> list[int]:
         site_charges = get_charges(site, self.charge_tol) * -1

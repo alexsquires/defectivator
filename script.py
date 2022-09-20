@@ -15,6 +15,6 @@ ds = DefectSet(
     bulk_supercell,
     extrinsic_species=["Fe"],
     charge_tol=5,
-    interstitial_scheme="voronoi",
-)
+    interstitial_scheme= None
+    )
 print(ds.vacancies)

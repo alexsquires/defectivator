@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
 from pymatgen.core import Structure
-from pymatgen.analysis.defects.utils import (
-    StructureMotifInterstitial,
-    TopographyAnalyzer,
-)
+# from pymatgen.analysis.defects.utils import (
+#     StructureMotifInterstitial,
+#     TopographyAnalyzer,
+# )
 from copy import deepcopy
 
 
@@ -94,7 +94,13 @@ def map_prim_defect_to_supercell(
     host: str,
     primitive_structure: "pymatgen.core.species",
 ) -> "pymatgen.core.species":
-    """ """
+    """
+    
+    """
+    # for sites in host "pymatgen.core.Structure", classify
+    # sites as 'defect' if they are hosting some kind of
+    # defect species, or 'native' if they are not and assign
+    # these descriptions as `site_propeties`
     site_type = []
     for site in structure:
         if list(site.frac_coords) == list(defect_site):
@@ -102,6 +108,10 @@ def map_prim_defect_to_supercell(
         else:
             site_type.append("native")
     structure.add_site_property("site_type", site_type)
+
+    # get the mapping between the primitive structure
+    # and the host structure using pymatgen. Then convert the
+
     mapping = get_prim_to_bulk_map(
         primitive_structure=primitive_structure, host_structure=structure
     )
