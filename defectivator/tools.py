@@ -5,7 +5,13 @@ import pandas as pd
 #     TopographyAnalyzer,
 # )
 from copy import deepcopy
+import os
 
+_ROOT = os.path.abspath(os.path.dirname(__file__))
+def get_data(path):
+    return os.path.join(_ROOT, 'data', path)
+
+data = get_data('charges.csv')
 
 def extend_list_to_zero(l: list) -> np.array:
     """
@@ -40,7 +46,7 @@ def get_charges(atom: str, charge_tol: float = 5) -> np.array:
         np.array: array of reasonable oxidation states for atom
 
     """
-    ox_states = pd.read_csv("charges.csv", delim_whitespace=True, index_col="Element")
+    ox_states = pd.read_csv(data, delim_whitespace=True, index_col="Element")
     perc = ox_states.loc[atom] / ox_states.loc[atom].sum() * 100
     charges = [int(k) for k, v in perc.items() if v > charge_tol]
     if 0 not in charges:
@@ -110,7 +116,7 @@ def define_site_types(
 def map_prim_defect_to_supercell(
     structure: "pymatgen.core.Structure",
     defect_position: list[float],
-    host: Optional[str],
+    host: str,
     host_cell: "pymatgen.core.structure",
 ) -> "pymatgen.core.structure":
     """
