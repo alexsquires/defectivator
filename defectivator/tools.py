@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-from pymatgen.analysis.defects.utils import (
-    StructureMotifInterstitial,
-    TopographyAnalyzer,
-)
+# from pymatgen.analysis.defects.utils import (
+#     StructureMotifInterstitial,
+#     TopographyAnalyzer,
+# )
 from copy import deepcopy
 
 
@@ -89,7 +89,7 @@ def get_prim_to_bulk_map(
 
 def define_site_types(
     structure: "pymatgen.core.Structure", defect_position: list[float]
-):
+) -> None:
     """
     given a structure, and the position of a defect site in that structure,
     label all the sites in the structure as either "native" or "defect"
@@ -110,12 +110,27 @@ def define_site_types(
 def map_prim_defect_to_supercell(
     structure: "pymatgen.core.Structure",
     defect_position: list[float],
-    host: str,
+    host: Optional[str],
     host_cell: "pymatgen.core.structure",
 ) -> "pymatgen.core.structure":
     """
-    given a primitive cell continaing a defect
+    given a primitive cell continaing a defect, `structure`
+    find the transformation matrix between that and a supecell,
+    and generate the supercell containing a single point defect
 
+    args:
+        structure (pymatgen.core.Structure): primitive cell with
+            a defect
+        defect position (list[float]): fractional coordinates of
+            the point defect
+        host: (Optional[str]): the host species for a defect,
+            None for interstitials
+        host_cell (pymatgen.core.Structure): supercell for defect
+            calculation
+
+    returns:
+        structure (pmg.core.Structure): supercell containing 
+            a point defect.
     """
 
     # get the mapping between the primitive structure and the supercell, labelling

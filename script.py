@@ -17,4 +17,6 @@ ds = DefectSet(
     charge_tol=5,
     interstitial_scheme= None
     )
-print(ds.vacancies)
+
+for v in ds.vacancies:
+    print(v.structure.composition)
