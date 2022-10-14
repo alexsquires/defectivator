@@ -1,9 +1,6 @@
 import numpy as np
 import pandas as pd
-# from pymatgen.analysis.defects.utils import (
-#     StructureMotifInterstitial,
-#     TopographyAnalyzer,
-# )
+from defectivator.interstitials import InterstitialMap
 from copy import deepcopy
 import os
 
@@ -184,18 +181,15 @@ def generate_interstitial_template(
               `pymatgen.analysis.defect.utils`
     """
     structure = deepcopy(structure)
-    if interstitial_scheme == "infit":
-        interstitial_generator = StructureMotifInterstitial(structure, "Fr")
-        interstitials = interstitial_generator.enumerate_defectsites()
-        for interstitial in interstitials:
-            structure.append(interstitial.species, interstitial.frac_coords)
-    structure.replace_species({"Fr": "X"})
+    # if interstitial_scheme == "infit":
+    #     interstitial_generator = StructureMotifInterstitial(structure, "Fr")
+    #     interstitials = interstitial_generator.enumerate_defectsites()
+    #     for interstitial in interstitials:
+    #         structure.append(interstitial.species, interstitial.frac_coords)
+    # structure.replace_species({"Fr": "X"})
     if interstitial_scheme == "voronoi":
-        interstitial_generator = TopographyAnalyzer(structure, structure.symbol_set, [])
-        interstitial_generator.cluster_nodes(0.8)
-        interstitial_generator.remove_collisions()
-        structure = interstitial_generator.get_structure_with_nodes()
-    return structure
+        map = InterstitialMap(structure)
+    return map.structure
 
 
 def group_ions(species, atom_type, charge_tol=5):

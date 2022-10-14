@@ -4,6 +4,7 @@ from copy import deepcopy
 import numpy as np
 
 
+
 @dataclass
 class Defect:
     """Class which describes a defect in a periodic structure
