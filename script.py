@@ -15,8 +15,9 @@ ds = DefectSet(
     bulk_supercell,
     extrinsic_species=["Fe"],
     charge_tol=5,
-    interstitial_scheme= None
+    interstitial_scheme="voronoi" 
     )
 
-for v in ds.vacancies:
-    print(v.structure.composition)
+for v in ds.interstitials:
+    v.structure.to(filename = "vis.cif")
+
