@@ -1,6 +1,6 @@
 from bsym.interface.pymatgen import unique_structure_substitutions
 from dataclasses import dataclass
-from defectivator.point_defects import DefectSet
+from defectivator.point_defects import PointDefectSet
 from defectivator.tools import generate_interstitial_template
 
 @dataclass
@@ -8,7 +8,7 @@ class DefectComplexMaker:
     """
     
     """
-    defect_set: DefectSet
+    defect_set: PointDefectSet
     reference_defect_label: str
     associated_defect_label: str
     n_associated_defects: int
