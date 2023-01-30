@@ -1,13 +1,13 @@
-from pymatgen.core.structure import Structure
 from bsym.interface.pymatgen import unique_structure_substitutions
 from dataclasses import dataclass
-from defectivator.defect import Defect
 from defectivator.point_defects import DefectSet
-from defectivator.tools import map_prim_defect_to_supercell, get_charges
-
+from defectivator.tools import generate_interstitial_template
 
 @dataclass
 class DefectComplexMaker:
+    """
+    
+    """
     defect_set: DefectSet
     reference_defect_label: str
     associated_defect_label: str
@@ -28,7 +28,10 @@ class DefectComplexMaker:
             self.defect_complexes = self._generate_vacancy_complexes()
 
         elif self.associated_defect_label.split("_")[1] == "i":
-            None
+            self._associated_species_substituent = self.associated_defect_label.split(
+                "_"
+            )[0]
+            self.defect_complexes = self._generate_interstitial_complexes()
 
         else:
             self._associated_species_native = self.associated_defect_label.split("_")[1]
@@ -74,3 +77,32 @@ class DefectComplexMaker:
         for sub in substitutions:
             all_complexes.append(sub)
         return all_complexes
+
+    def _generate_interstitial_complexes(self):
+
+        all_complexes = []
+        structure = self.reference_defect.structure
+        interstitial_template = generate_interstitial_template(structure)
+        interstitial_template.merge_sites(0.9, "delete")
+
+        for site in interstitial_template:
+            if site.species_string == "X0+":
+                structure.append(
+                    site.species, site.frac_coords
+                )
+
+        n_interstitial_sites = structure.composition["X0+"]
+        substitutions = unique_structure_substitutions(
+            structure,
+            "X",
+            {
+                "Fr" : int(self.n_associated_defects),
+                "X": int(n_interstitial_sites - self.n_associated_defects),
+            },
+        )
+        for sub in substitutions:
+            sub.remove_species(["X"])
+            sub.replace_species({"Fr": self._associated_species_substituent})
+            all_complexes.append(sub)
+        return all_complexes
+

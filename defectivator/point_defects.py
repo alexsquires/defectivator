@@ -1,4 +1,3 @@
-from asyncio.unix_events import DefaultEventLoopPolicy
 from pymatgen.io.vasp import Kpoints, Incar
 from pymatgen.io.vasp.sets import DictSet
 from bsym.interface.pymatgen import unique_structure_substitutions
@@ -16,8 +15,10 @@ from defectivator.defect import Defect
 
 
 @dataclass
-class DefectSet:
-    """class for generating point defects in a structure
+class PointDefectSet:
+    """class for generating point defects in a structure. The generated `Defect`
+    objects will assume a fully static lattice. Further approaches should be
+    applied for ground states defect structure searching.
 
     args:
         host_structure (pymatgen.core.Structure): the structure to generate
@@ -35,9 +36,10 @@ class DefectSet:
     extrinsic_species: list = None
     charge_tol: float = 5
     interstitial_scheme: str = "voronoi"
-    center_defects: bool = True
+    center_defects: bool = False
 
     def __post_init__(self):
+        self.host_structure = self.host_structure.get_reduced_structure()
         self.primitive_structure = self.host_structure.get_primitive_structure()
         self._get_cations_and_anions()
         self.vacancies = self._generate_all_vacancies()
@@ -109,7 +111,7 @@ class DefectSet:
                         charges,
                         degeneracy,
                         f"v_{k}_{i+1}",
-                        center=self.center_defects,
+                        center_defect=self.center_defects,
                     )
                 )
         return vacancies
@@ -170,7 +172,7 @@ class DefectSet:
                         antisite_charges,
                         degeneracy,
                         f"{native}_{substituent}_{i+1}",
-                        center=self.center_defects,
+                        center_defect=self.center_defects,
                     )
                 )
         return antisites
@@ -207,12 +209,12 @@ class DefectSet:
                         substitution_charges,
                         degeneracy,
                         f"{native}_{substituent}_{i+1}",
-                        center=self.center_defects,
+                        center_defect=self.center_defects,
                     )
                 )
         return all_substitutions
 
-    def _generate_all_antisites(self) -> list[DefaultEventLoopPolicy]:
+    def _generate_all_antisites(self) -> list:
         """
         Generate antisites
 
@@ -261,7 +263,7 @@ class DefectSet:
                         charges,
                         interstitial.number_of_equivalent_configurations,
                         f"{atom}_i_{i+1}",
-                        center=self.center_defects,
+                        center_defect=self.center_defects,
                     )
                 )
         return interstitials

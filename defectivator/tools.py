@@ -116,12 +116,11 @@ def map_prim_defect_to_supercell(
     host: str,
     host_cell: "pymatgen.core.structure",
 ) -> "pymatgen.core.structure":
-    """
-    given a primitive cell continaing a defect, `structure`
+    """given a primitive cell continaing a defect, `structure`
     find the transformation matrix between that and a supecell,
     and generate the supercell containing a single point defect
 
-    args:
+    Args:
         structure (pymatgen.core.Structure): primitive cell with
             a defect
         defect position (list[float]): fractional coordinates of
@@ -131,9 +130,8 @@ def map_prim_defect_to_supercell(
         host_cell (pymatgen.core.Structure): supercell for defect
             calculation
 
-    returns:
-        structure (pmg.core.Structure): supercell containing 
-            a point defect.
+    Returns:
+        pmg.core.Structure: supercell containing a point defect.
     """
 
     # get the mapping between the primitive structure and the supercell, labelling
@@ -166,29 +164,18 @@ def map_prim_defect_to_supercell(
 
 
 def generate_interstitial_template(
-    structure: "pymatgen.core.Structure", interstitial_scheme: str = "voronoi"
+    structure: "pymatgen.core.Structure"
 ):
-    """
-    Generate interstitials based on search strategies in pymatgen.
+    """Return a structure populated with interstitial sites
 
-    args:
-        structure (pymatgen.core.Structure): structure to search for interstitials
-            in
-        interstitial_schmeme (str):
-            - "voronoi" uses the TopographyAnalyzer in
-              `pymatgen.analysis.defect.utils`
-            - "infit" uses the StructureMotifInterstitial in
-              `pymatgen.analysis.defect.utils`
+    Args:
+        structure (pymatgen.core.Structure): structure to find interstitials in
+
+    Returns:
+        "pymatgen.core.Structure": structure populated with interstitials
     """
     structure = deepcopy(structure)
-    # if interstitial_scheme == "infit":
-    #     interstitial_generator = StructureMotifInterstitial(structure, "Fr")
-    #     interstitials = interstitial_generator.enumerate_defectsites()
-    #     for interstitial in interstitials:
-    #         structure.append(interstitial.species, interstitial.frac_coords)
-    # structure.replace_species({"Fr": "X"})
-    if interstitial_scheme == "voronoi":
-        map = InterstitialMap(structure)
+    map = InterstitialMap(structure)
     return map.structure
 
 

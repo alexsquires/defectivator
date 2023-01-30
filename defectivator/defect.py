@@ -24,25 +24,32 @@ class Defect:
     charges: list[int]
     degeneracy: int
     name: str
-    center: bool = True
+    center_defect: bool = True
 
     def __post_init__(self):
-        if self.center:
+        if self.center_defect:
             # shift the defect to fraction coordinates [0.5, 0.5, 0.5]
-            defect_site = [
-                i.frac_coords
-                for i in self.structure
-                if i.properties["site_type"] == "defect"
-            ][0]
-            self.structure.translate_sites(
-                [i for i in range(len(self.structure))], -1 * np.array(defect_site)
-            )
-            self.structure.translate_sites(
-                [i for i in range(len(self.structure))], [0.5, 0.5, 0.5]
-            )
+            self._center()
+            self.centered = True
+        else:
+            self.centered = False
         if "X" in self.structure.symbol_set:
             # remove any dummy atoms from the structure
             self.structure.remove_species(["X0+"])
+
+    def _center(self) -> None:
+        defect_site = [
+            i.frac_coords
+            for i in self.structure
+            if i.properties["site_type"] == "defect"
+        ][0]
+        self.structure.translate_sites(
+            [i for i in range(len(self.structure))], -1 * np.array(defect_site)
+        )
+        self.structure.translate_sites(
+            [i for i in range(len(self.structure))], [0.5, 0.5, 0.5]
+        )
+
 
     def charge_decorate_structures(self) -> list[Structure]:
         """

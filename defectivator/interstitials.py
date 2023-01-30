@@ -153,24 +153,7 @@ class InterstitialMap:
         self.coords = all_halo_coords
         self.vnodes = vnodes
         self.framework = framework
-        if self.check_volume:
-            self.check_volume(self)
 
         for node in vnodes:
             structure.append("X", node.frac_coords)
         self.interstitial_map = structure
-
-    def check_volume(self):
-        """
-        Basic check for volume of all voronoi poly sum to unit cell volume
-        Note that this does not apply after poly combination.
-        """
-        vol = sum(v.volume for v in self.vnodes)
-        print(vol, self.structure.volume)
-        # if abs(vol - self.structure.volume) > 1e-8:
-        #     raise ValueError(
-        #         "Sum of voronoi volumes is not equal to original volume of "
-        #         "structure! This may lead to inaccurate results. You need to "
-        #         "tweak the tolerance and max_cell_range until you get a "
-        #         "correct mapping."
-        #     )
