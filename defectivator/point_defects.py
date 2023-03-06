@@ -7,11 +7,16 @@ from defectivator.tools import (
     extend_list_to_zero,
     generate_interstitial_template,
     group_ions,
+    classify_defect,
+    find_interstitial
 )
 from dataclasses import dataclass
 from itertools import permutations, product
 import numpy as np
 from defectivator.defect import Defect
+from typing import Optional
+from copy import deepcopy
+from pymatgen.analysis.structure_matcher import StructureMatcher
 
 
 @dataclass
@@ -37,20 +42,27 @@ class PointDefectSet:
     charge_tol: float = 5
     interstitial_scheme: str = "voronoi"
     center_defects: bool = False
+    bulk_oxidation_states: Optional[dict] = None
 
     def __post_init__(self):
         self.host_structure = self.host_structure.get_reduced_structure()
         self.primitive_structure = self.host_structure.get_primitive_structure()
+        if self.bulk_oxidation_states is None:
+            self.bulk_oxidation_states = (
+                self.host_structure.composition.oxi_state_guesses()[0]
+            )
+
         self._get_cations_and_anions()
         self.vacancies = self._generate_all_vacancies()
         self.antisites = self._generate_all_antisites()
-        if self.extrinsic_species != None:
+        if self.extrinsic_species is not None:
             self.substitutions = self._generate_all_dopant_substiutions()
-        if self.interstitial_scheme != None:
+        if self.interstitial_scheme is not None:
             # find interstitials only if an interstitial scheme is specified
             self.interstitial_template = generate_interstitial_template(
                 self.primitive_structure
             )
+            self.interstitial_template.merge_sites(1, "delete")
             self.interstitials = self._populate_interstitial_sites()
         else:
             self.interstitials = []
@@ -79,6 +91,28 @@ class PointDefectSet:
                 charges = extend_list_to_zero(charges)
             return sorted(charges)
 
+    def _get_n_elect(self, defect_name: str):
+        oxidation_states = deepcopy(self.bulk_oxidation_states)
+        oxidation_states.update({"v": 0})
+
+        defect = classify_defect(defect_name)
+
+        if defect[0] == "vacancy":
+            site_species = defect[1]
+            subs_species = "v"
+
+        elif defect[0] == "interstitial":
+            subs_species = defect[1]
+            site_species = "v"
+
+        else:
+            subs_species = defect[1]
+            site_species = defect[2]
+
+        num_electrons = oxidation_states[subs_species] - oxidation_states[site_species]
+
+        return int(-num_electrons)
+
     def _generate_all_vacancies(self) -> list[Defect]:
         """
         For each atom present in the host structure, generate all symmetrically
@@ -105,12 +139,17 @@ class PointDefectSet:
                     host=k,
                     host_cell=self.host_structure,
                 )
+                name = f"v_{k}_{i+1}"
                 vacancies.append(
                     Defect(
-                        s,
-                        charges,
-                        degeneracy,
-                        f"v_{k}_{i+1}",
+                        structure=s,
+                        defect_coordinates=defect_site,
+                        charges=charges,
+                        abs_delta_e=[
+                            abs(self._get_n_elect(name) + charge) for charge in charges
+                        ],
+                        degeneracy=degeneracy,
+                        name=name,
                         center_defect=self.center_defects,
                     )
                 )
@@ -129,7 +168,7 @@ class PointDefectSet:
 
         # if there are any extrinsic species, also determine whether
         # these are anions or cations
-        if self.extrinsic_species != None:
+        if self.extrinsic_species is not None:
             dopants = self.extrinsic_species
             dopant_cations = group_ions(dopants, "cation", 5)
             dopant_anions = group_ions(dopants, "anion", 5)
@@ -166,19 +205,24 @@ class PointDefectSet:
                     host=native,
                     host_cell=self.host_structure,
                 )
+                name = f"{native}_{substituent}_{i+1}"
                 antisites.append(
                     Defect(
-                        antisite,
-                        antisite_charges,
-                        degeneracy,
-                        f"{native}_{substituent}_{i+1}",
+                        structure=antisite,
+                        defect_coordinates=defect_site,
+                        charges=antisite_charges,
+                        abs_delta_e=[
+                            abs(self._get_n_elect(name) + charge)
+                            for charge in antisite_charges
+                        ],
+                        degeneracy=degeneracy,
+                        name=f"{native}_{substituent}_{i+1}",
                         center_defect=self.center_defects,
                     )
                 )
         return antisites
 
     def _generate_all_dopant_substiutions(self):
-
         composition = self.primitive_structure.composition
         all_substitutions = []
         if self.dopant_cations != []:
@@ -192,9 +236,9 @@ class PointDefectSet:
             )
             substitution_charges = self._get_antisite_charges(native, substituent)
             for i, sub in enumerate(live_substitutions):
-                defect_site = [
-                    i.frac_coords for i in sub if i.species_string == "X0+"
-                ][0]
+                defect_site = [i.frac_coords for i in sub if i.species_string == "X0+"][
+                    0
+                ]
                 degeneracy = sub.number_of_equivalent_configurations
                 sub.replace_species({"X0+": substituent})
                 substitution = map_prim_defect_to_supercell(
@@ -203,12 +247,19 @@ class PointDefectSet:
                     host=native,
                     host_cell=self.host_structure,
                 )
+
+                name = f"{native}_{substituent}_{i+1}"
                 all_substitutions.append(
                     Defect(
-                        substitution,
-                        substitution_charges,
-                        degeneracy,
-                        f"{native}_{substituent}_{i+1}",
+                        structure=substitution,
+                        defect_coordinates=defect_site,
+                        charges=substitution_charges,
+                        abs_delta_e=[
+                            abs(self._get_n_elect(name) + charge)
+                            for charge in substitution_charges
+                        ],
+                        degeneracy=degeneracy,
+                        name=name,
                         center_defect=self.center_defects,
                     )
                 )
@@ -257,28 +308,75 @@ class PointDefectSet:
                     host=None,
                     host_cell=self.host_structure,
                 )
+                name = f"{atom}_i_{i+1}"
                 interstitials.append(
                     Defect(
-                        interstitial,
-                        charges,
-                        interstitial.number_of_equivalent_configurations,
-                        f"{atom}_i_{i+1}",
+                        structure=interstitial,
+                        defect_coordinates=defect_site,
+                        charges=charges,
+                        degeneracy=interstitial.number_of_equivalent_configurations,
+                        abs_delta_e=[
+                            abs(self._get_n_elect(name) + charge) for charge in charges
+                        ],
+                        name=name,
                         center_defect=self.center_defects,
                     )
                 )
         return interstitials
 
-    def make_defect_calcs(self, dict_set: "pymatgen.io.vasp.set.DictSet", calc_type: str) -> None:
+    def cluster_interstitials_by_relaxation(self):
+        """ """
+
+        interstitals_dict = {}
+        species = [k for k in self.bulk_oxidation_states.keys()]
+        for specie in species:
+            interstitals = [
+                interstitial
+                for interstitial in self.interstitials
+                if interstitial.name.split("_")[0] == specie
+            ]
+            interstitals_dict.update({specie: interstitals})
+
+        all_interstitials = []
+        for k, v in interstitals_dict.items():
+            interstital_structures = []
+            for defect in v:
+                structure = defect.structure.copy().relax(
+                    relax_cell=False, verbose=False
+                )
+                interstital_structures.append(structure)
+
+            sm = StructureMatcher()
+            groups = sm.group_structures(interstital_structures)
+            interstital_structures = [group[0] for group in groups]
+
+            for i, structure in enumerate(interstital_structures):
+                interstitials =  Defect(
+                        structure=structure,
+                        charges=defect.charges,
+                        degeneracy=defect.degeneracy,
+                        name=f"{k}_i_{i}",
+                        abs_delta_e=defect.abs_delta_e,
+                        defect_coordinates=find_interstitial(structure, self.host_structure, k),
+                        center_defect=False
+                    )
+                all_interstitials.append(interstitials)
+
+        self.interstitials = all_interstitials
+
+    def make_defect_calcs(
+        self, dict_set: "pymatgen.io.vasp.set.DictSet", calc_type: str
+    ) -> None:
         """
         taking all defects in the point DefectSet, write vasp calculations
         given a pymatgen.io.vasp.sets.DictSet object, and wether or not the calculation
         should be gamma only (useful for a down-sampled first-pass on defect energies)
-        
+
         ##TODO: currently only accepts `gam`: `std` and `ncl` should also be options
 
         args:
             dict_set (pymatgen.io.vasp.sets.DictSet):
-            calc_type(str):  
+            calc_type(str):
         """
         for defect in (
             self.vacancies + self.interstitials + self.antisites + self.substitutions
