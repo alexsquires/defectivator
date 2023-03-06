@@ -9,25 +9,23 @@ from copy import deepcopy
 from typing import Union
 from defectivator.defect import Defect
 
-from dataclasses import dataclass
 
-@dataclass
-class generate_random_defects:
-    """_summary_
-    """
-    defect: Defect
-    n_structures: int
-    reconstruction_radius: float # would be good to also accept a range
-    rattle_std: float = 0 # want to code this up so that if rattle_std == 0, then no rattle takes place 
+def generate_random_defects(defect: Defect,
+    n_structures: int,
+    reconstruction_radius: float,
+    rattle_std: float = 0 ):
 
     ### disappointing hard code ###
     if defect.centered == False:
         defect._center()
     ### TODO: test with pbcs ###
 
-    ####  I think probably, this should just be a generator.
-    
-
+    num = 0
+    while num < n_structures:
+        yield jumble(structure = defect.structure.copy(),
+                     radius=reconstruction_radius,
+                     rattle=True
+                     )
 
 
 
@@ -173,7 +171,7 @@ def jumble(
     Returns:
         Structure: structure with rearranged atoms
     """
-    sites = get_sites_in_r_of_center(structure, radius)
+    sites = get_sites_in_r_of_point(structure, radius)
     min, max = get_min_max_near_center(structure, radius)
     jumbled_structure = place_atoms(
         sites=sites,
