@@ -362,43 +362,6 @@ def group_ions(species, atom_type, charge_tol=5):
     return ions
 
 
-def embiggen(
-    host_structure: "pymatgen.core.Structure",
-    relaxed_defect_structure: "pymatgen.core.Structure",
-    defect_name: str,
-    defect_radius,
-) -> "pymatgen.core.Structure":
-    """_summary_
-
-    Args:
-        host_structure (Structure): _description_
-        relaxed_defect_structure (Structure): _description_
-
-    Returns:
-        Structure: _description_
-    """
-
-    # find defect
-    coords = get_defect_coords(host_structure, relaxed_defect_structure, defect_name)
-    coords = np.array(coords)
-    print(coords)
-
-    # # shift coords
-    # new_structure = relaxed_defect_structure.copy()
-    # new_structure.translate_sites(
-    #     vector=coords - np.array([0.5, 0.5, 0.5]),
-    #     indices=[i for i in range(len(new_structure))],
-    #     frac_coords=True,
-    # )
-
-    # defect_sites = new_structure.get_sites_in_sphere([0.5, 0.5, 0.5], defect_radius)
-    # # host_structure.
-    # print(defect_sites)
-    # # new_structure.to(filename="vis.cif")
-
-    # print(get_prim_map(new_structure, host_structure))
-
-
 def find_interstitial(
     defect: "pymatgen.core.Structure", host: "pymatgen.core.Structure", species: str
 ) -> list[float]:
