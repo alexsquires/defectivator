@@ -7,6 +7,7 @@ from pymatgen.io.ase import AseAtomsAdaptor as AAA
 import os
 from typing import Optional
 from pymatgen.core import Structure
+
 # from hiphive.structure_generation.rattle import (
 #     generate_mc_rattled_structures,
 # )
@@ -73,7 +74,9 @@ def distort(
 
     if defect_index == None:
         structure.append("Fr", defect_frac_coords)
-        defect_index = [i for i,j in enumerate(structure) if j.species_string == "Fr"][0]
+        defect_index = [i for i, j in enumerate(structure) if j.species_string == "Fr"][
+            0
+        ]
 
     distances = [
         [structure.get_distance(defect_index, j), defect_index, j]
@@ -167,6 +170,7 @@ def rattle(
     rattled_structure = AAA.get_structure(rattled_ase_struct)
     rattled_structure.set_charge(structure.charge)
     return rattled_structure.get_sorted_structure()
+
 
 def get_charges(atom: str, charge_tol: float = 5) -> np.array:
     """

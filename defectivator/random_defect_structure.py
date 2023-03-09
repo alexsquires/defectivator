@@ -10,11 +10,12 @@ from typing import Union
 from defectivator.defect import Defect
 
 
-def generate_random_defects(defect: Defect,
+def generate_random_defects(
+    defect: Defect,
     n_structures: int,
     reconstruction_radius: float,
-    rattle_std: float = 0 ):
-
+    rattle_std: float = 0,
+):
     ### disappointing hard code ###
     if defect.centered == False:
         defect._center()
@@ -22,14 +23,15 @@ def generate_random_defects(defect: Defect,
 
     num = 0
     while num < n_structures:
-        yield jumble(structure = defect.structure.copy(),
-                     radius=reconstruction_radius,
-                     rattle=True
-                     )
+        yield jumble(
+            structure=defect.structure.copy(), radius=reconstruction_radius, rattle=True
+        )
+        num += 1
 
 
-
-def get_sites_in_r_of_point(structure: Structure, radius: float, point: np.array) -> list[Site]:
+def get_sites_in_r_of_point(
+    structure: Structure, radius: float
+) -> list[Site]:
     """get sites in structure within +/- r of the center of
     the cell
 

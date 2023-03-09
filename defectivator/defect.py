@@ -9,15 +9,15 @@ import numpy as np
 @dataclass
 class Defect:
     """Class which describes a defect in a periodic structure
-    
+
     args:
         structure (pmg.Structure): structure object that describes the defect
-        charges (list[int]): list of integers describing the charge states the 
+        charges (list[int]): list of integers describing the charge states the
             defect can adopt
-        degeneracy (int): integer describing the site degeneracy of the defined 
+        degeneracy (int): integer describing the site degeneracy of the defined
             defect
         name (str): a unique label that can be used to distinguish the defect
-        center (bool): whether to shift the origin of the cell such that the 
+        center (bool): whether to shift the origin of the cell such that the
             defect is at fraction coordinates [0.5, 0.5, 0.5]
     """
 
@@ -51,7 +51,7 @@ class Defect:
 
     def _center(self) -> None:
         self.structure.translate_sites(
-            [i for i in range(len(self.structure))], -1 * np.array(self.defect_coords)
+            [i for i in range(len(self.structure))], -1 * np.array(self.defect_coordinates)
         )
         self.structure.translate_sites(
             [i for i in range(len(self.structure))], [0.5, 0.5, 0.5]
@@ -65,9 +65,8 @@ class Defect:
         Returns:
             list[Structure]: _description_
         """
-        all_structures =[]
+        all_structures = []
         for charge, delta_e in zip(self.charges, self.abs_delta_e):
-
             print(charge)
             if abs(delta_e) > 4:
                 num_neighbours = abs(8 - delta_e)
@@ -84,13 +83,12 @@ class Defect:
                 for distortion_factor in np.arange(
                     min_distortion, max_distortion + 0.1, 0.1
                 ):
-                    
                     structure = distort(
                         structure=self.structure.copy(),
                         num_nearest_neighbours=num_neighbours,
                         distortion_factor=distortion_factor,
-                        defect_index = self.defect_index,
-                        defect_frac_coords=self.defect_coordinates
+                        defect_index=self.defect_index,
+                        defect_frac_coords=self.defect_coordinates,
                     )
                     structure.set_charge(charge)
                     structures.append(structure.get_sorted_structure())

@@ -8,7 +8,7 @@ from defectivator.tools import (
     generate_interstitial_template,
     group_ions,
     classify_defect,
-    find_interstitial
+    find_interstitial,
 )
 from dataclasses import dataclass
 from itertools import permutations, product
@@ -351,15 +351,17 @@ class PointDefectSet:
             interstital_structures = [group[0] for group in groups]
 
             for i, structure in enumerate(interstital_structures):
-                interstitials =  Defect(
-                        structure=structure,
-                        charges=defect.charges,
-                        degeneracy=defect.degeneracy,
-                        name=f"{k}_i_{i}",
-                        abs_delta_e=defect.abs_delta_e,
-                        defect_coordinates=find_interstitial(structure, self.host_structure, k),
-                        center_defect=False
-                    )
+                interstitials = Defect(
+                    structure=structure,
+                    charges=defect.charges,
+                    degeneracy=defect.degeneracy,
+                    name=f"{k}_i_{i}",
+                    abs_delta_e=defect.abs_delta_e,
+                    defect_coordinates=find_interstitial(
+                        structure, self.host_structure, k
+                    ),
+                    center_defect=False,
+                )
                 all_interstitials.append(interstitials)
 
         self.interstitials = all_interstitials

@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from defectivator.point_defects import PointDefectSet
 from defectivator.tools import generate_interstitial_template
 
+
 @dataclass
 class DefectComplexMaker:
-    """
-    
-    """
+    """ """
+
     defect_set: PointDefectSet
     reference_defect_label: str
     associated_defect_label: str
@@ -41,7 +41,6 @@ class DefectComplexMaker:
             self.defect_complexes = self._generate_antisite_complexes()
 
     def _generate_vacancy_complexes(self):
-
         all_complexes = []
         structure = self.reference_defect.structure
         n_native = structure.composition[self._associated_species]
@@ -60,7 +59,6 @@ class DefectComplexMaker:
         return all_complexes
 
     def _generate_antisite_complexes(self):
-
         all_complexes = []
         structure = self.reference_defect.structure
         n_native = structure.composition[self._associated_species_native]
@@ -79,7 +77,6 @@ class DefectComplexMaker:
         return all_complexes
 
     def _generate_interstitial_complexes(self):
-
         all_complexes = []
         structure = self.reference_defect.structure
         interstitial_template = generate_interstitial_template(structure)
@@ -87,16 +84,14 @@ class DefectComplexMaker:
 
         for site in interstitial_template:
             if site.species_string == "X0+":
-                structure.append(
-                    site.species, site.frac_coords
-                )
+                structure.append(site.species, site.frac_coords)
 
         n_interstitial_sites = structure.composition["X0+"]
         substitutions = unique_structure_substitutions(
             structure,
             "X",
             {
-                "Fr" : int(self.n_associated_defects),
+                "Fr": int(self.n_associated_defects),
                 "X": int(n_interstitial_sites - self.n_associated_defects),
             },
         )
@@ -105,4 +100,3 @@ class DefectComplexMaker:
             sub.replace_species({"Fr": self._associated_species_substituent})
             all_complexes.append(sub)
         return all_complexes
-

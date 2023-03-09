@@ -22,6 +22,7 @@ def get_facets(qhull_data):
     """
     return ConvexHull(qhull_data, qhull_options="QJ i").simplices
 
+
 def get_mapping(poly, vnodes, tol):
     """
     Helper function to check if a vornoi poly is a periodic image
@@ -31,6 +32,7 @@ def get_mapping(poly, vnodes, tol):
         if v.is_image(poly, tol):
             return v
     return None
+
 
 def calculate_vol(coords):
     """
@@ -52,11 +54,13 @@ def calculate_vol(coords):
         vol += calculate_vol(c)
     return vol
 
+
 @dataclass
 class VoronoiPolyhedron:
     """
     Convenience container for a voronoi point in PBC and its associated polyhedron.
     """
+
     lattice: Lattice
     frac_coords: list[float]
     polyhedron_indicies: int
@@ -98,6 +102,7 @@ class VoronoiPolyhedron:
         """
         return calculate_vol(self.polyhedron_coords)
 
+
 @dataclass
 class InterstitialMap:
     structure: "pymatgen.core.Structure"
@@ -105,7 +110,6 @@ class InterstitialMap:
     check_volume: bool = True
 
     def __post_init__(self):
- 
         structure = self.structure
         lattice = structure.lattice
 
@@ -141,7 +145,9 @@ class InterstitialMap:
             if i == 0:
                 continue
             fcoord = lattice.get_fractional_coords(vertex)
-            poly = VoronoiPolyhedron(lattice, fcoord, node_points_map[i], all_halo_coords, i)
+            poly = VoronoiPolyhedron(
+                lattice, fcoord, node_points_map[i], all_halo_coords, i
+            )
             if np.all([-self.tol <= c < 1 + self.tol for c in fcoord]):
                 if len(vnodes) == 0:
                     vnodes.append(poly)
