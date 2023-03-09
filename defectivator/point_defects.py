@@ -248,7 +248,7 @@ class PointDefectSet:
                     host_cell=self.host_structure,
                 )
 
-                name = f"{native}_{substituent}_{i+1}"
+                name = f"{substituent}_{native}_{i+1}"
                 all_substitutions.append(
                     Defect(
                         structure=substitution,
