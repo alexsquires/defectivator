@@ -4,7 +4,7 @@ from defectivator.interstitials import InterstitialMap
 from copy import deepcopy
 from pymatgen.util.coord import pbc_diff
 from pymatgen.io.ase import AseAtomsAdaptor as AAA
-import os
+import os, random
 from typing import Optional
 from pymatgen.core import Structure
 
@@ -275,6 +275,25 @@ def define_site_types(
         else:
             site_type.append("native")
     structure.add_site_property("site_type", site_type)
+
+
+def make_n_antisite_swaps(structure: Structure, n: int, species: list[str]):
+    """
+    given a structure, swap n sites of the species with an antisite of the
+    same species
+
+    args:
+        structure: structure to swap sites in
+        n: number of swaps to make
+        species: species to swap
+    """
+    live = structure.copy()
+    site = random.sample(live.indices_from_symbol(species[0]), k = n)
+    antisite = random.sample(live.indices_from_symbol(species[1]), k = n)
+    for site, antisite in zip(site, antisite):
+        live[site].species = species[1]
+        live[antisite].species = species[0]
+    return live
 
 
 def map_prim_defect_to_supercell(
