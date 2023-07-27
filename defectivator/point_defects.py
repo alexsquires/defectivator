@@ -1,5 +1,6 @@
 from pymatgen.io.vasp import Kpoints, Incar
 from pymatgen.io.vasp.sets import DictSet
+from pymatgen.core import Element
 from bsym.interface.pymatgen import unique_structure_substitutions
 from defectivator.tools import (
     get_charges,
@@ -9,12 +10,13 @@ from defectivator.tools import (
     group_ions,
     classify_defect,
     find_interstitial,
+    get_highest_charge
 )
 from dataclasses import dataclass
 from itertools import permutations, product
 import numpy as np
 from defectivator.defect import Defect
-from typing import Optional
+from typing import Optional, Union
 from copy import deepcopy
 from pymatgen.analysis.structure_matcher import StructureMatcher
 
@@ -54,7 +56,7 @@ class PointDefectSet:
 
         self._get_cations_and_anions()
         self.vacancies = self._generate_all_vacancies()
-        self.antisites = self._generate_all_antisites()
+        self.su = self._generate_all_substitutions()
         if self.extrinsic_species is not None:
             self.substitutions = self._generate_all_dopant_substiutions()
         if self.interstitial_scheme is not None:
@@ -67,11 +69,11 @@ class PointDefectSet:
         else:
             self.interstitials = []
 
-    def _get_antisite_charges(self, site, sub) -> list[int]:
+    def _get_substitution_charges(self, site, sub) -> list[int]:
         site_charges = get_charges(site, self.charge_tol) * -1
         sub_charges = get_charges(sub, self.charge_tol)
 
-        if sub in self.cations and site in self.cations:
+        if sub in self.cations +self.dopant_cations and site in self.cations:
             charges = list(
                 np.arange(
                     max(sub_charges) + min(site_charges),
@@ -83,7 +85,7 @@ class PointDefectSet:
             if 0 not in charges:
                 charges = extend_list_to_zero(charges)
             return sorted(charges)
-        elif sub in self.anions and site in self.anions:
+        elif sub in self.anions + self.dopant_anions and site in self.anions:
             charges = np.arange(
                 min(sub_charges) + min(site_charges), min(sub_charges) + 1, 1, dtype=int
             )
@@ -95,6 +97,9 @@ class PointDefectSet:
         oxidation_states = deepcopy(self.bulk_oxidation_states)
         oxidation_states.update({"v": 0})
 
+        for species in self.extrinsic_species:
+            oxidation_states.update({species: get_highest_charge(species)})
+
         defect = classify_defect(defect_name)
 
         if defect[0] == "vacancy":
@@ -105,7 +110,7 @@ class PointDefectSet:
             subs_species = defect[1]
             site_species = "v"
 
-        else:
+        elif defect[0] == "substitution":
             subs_species = defect[1]
             site_species = defect[2]
 
@@ -178,52 +183,53 @@ class PointDefectSet:
             self.dopant_cations = []
             self.dopant_anions = []
 
-    def _get_antisites(self, antisite_elements: list[str]):
+    def _get_substitutions(self, substitution_elements: list[str]):
         """
         get all possible cation and anion substitutions in the material.
         If a species can exhibit both catio and anion-like behviour, substitutions
         will be generated for both ion types.
         """
         composition = self.primitive_structure.composition
-        antisites = []
-        for native, substituent in permutations(antisite_elements, 2):
-            live_antisites = unique_structure_substitutions(
+        substitutions = []
+        for native, substituent in permutations(substitution_elements, 2):
+            live_substitutions = unique_structure_substitutions(
                 self.primitive_structure,
                 native,
                 {"X": int(1), native: int(composition[native] - 1)},
             )
-            antisite_charges = self._get_antisite_charges(native, substituent)
-            for i, antisite in enumerate(live_antisites):
+            substitution_charges = self._get_substitution_charges(native, substituent)
+            for i, substitution in enumerate(live_substitutions):
                 defect_site = [
-                    i.frac_coords for i in antisite if i.species_string == "X0+"
+                    i.frac_coords for i in substitution if i.species_string == "X0+"
                 ][0]
-                degeneracy = antisite.number_of_equivalent_configurations
-                antisite.replace_species({"X0+": substituent})
-                antisite = map_prim_defect_to_supercell(
-                    antisite,
+                degeneracy = substitution.number_of_equivalent_configurations
+                substitution.replace_species({"X0+": substituent})
+                substitution = map_prim_defect_to_supercell(
+                    substitution,
                     defect_site,
                     host=native,
                     host_cell=self.host_structure,
                 )
                 name = f"{native}_{substituent}_{i+1}"
-                antisites.append(
+                substitutions.append(
                     Defect(
-                        structure=antisite,
+                        structure=substitution,
                         defect_coordinates=defect_site,
-                        charges=antisite_charges,
+                        charges=substitution_charges,
                         abs_delta_e=[
                             abs(self._get_n_elect(name) + charge)
-                            for charge in antisite_charges
+                            for charge in substitution_charges
                         ],
                         degeneracy=degeneracy,
                         name=f"{native}_{substituent}_{i+1}",
                         center_defect=self.center_defects,
                     )
                 )
-        return antisites
+        return substitutions
 
     def _generate_all_dopant_substiutions(self):
         composition = self.primitive_structure.composition
+
         all_substitutions = []
         if self.dopant_cations != []:
             substitutions = list(product(self.dopant_cations, self.cations))
@@ -234,7 +240,7 @@ class PointDefectSet:
                 native,
                 {"X": int(1), native: int(composition[native] - 1)},
             )
-            substitution_charges = self._get_antisite_charges(native, substituent)
+            substitution_charges = self._get_substitution_charges(native, substituent)
             for i, sub in enumerate(live_substitutions):
                 defect_site = [i.frac_coords for i in sub if i.species_string == "X0+"][
                     0
@@ -254,7 +260,7 @@ class PointDefectSet:
                         structure=substitution,
                         defect_coordinates=defect_site,
                         charges=substitution_charges,
-                        abs_delta_e=[
+                        abs_delta_e = [
                             abs(self._get_n_elect(name) + charge)
                             for charge in substitution_charges
                         ],
@@ -265,16 +271,16 @@ class PointDefectSet:
                 )
         return all_substitutions
 
-    def _generate_all_antisites(self) -> list:
+    def _generate_all_substitutions(self) -> list:
         """
-        Generate antisites
+        Generate substitutions
 
         returns:
             list[Defect]: a list of defects representing all
-            the intrinsic antisites
+            the intrinsic substitutions
         """
-        cation_antites = self._get_antisites(self.cations)
-        anion_antites = self._get_antisites(self.anions)
+        cation_antites = self._get_substitutions(self.cations)
+        anion_antites = self._get_substitutions(self.anions)
         return cation_antites + anion_antites
 
     def _populate_interstitial_sites(self) -> list[Defect]:
@@ -381,7 +387,7 @@ class PointDefectSet:
             calc_type(str):
         """
         for defect in (
-            self.vacancies + self.interstitials + self.antisites + self.substitutions
+            self.vacancies + self.interstitials + self.substitutions + self.substitutions
         ):
             all_charge_states = defect.charge_decorate_structures()
             if calc_type == "gam":

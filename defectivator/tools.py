@@ -41,7 +41,7 @@ def classify_defect(defect_name: str) -> "str":
 
     else:
         assert len(species) in [1, 2] and len(site) in [1, 2]
-        return "anitsite", species, site
+        return "substitution", species, site
 
 
 def extend_list_to_zero(l: list) -> np.array:
@@ -194,6 +194,13 @@ def get_charges(atom: str, charge_tol: float = 5) -> np.array:
     if 0 not in charges:
         charges.append(0)
     return np.arange(min(charges), max(charges) + 1, 1, dtype=int)
+
+def get_highest_charge(atom: str, charge_tol: float = 5) -> int:
+    ox_states = pd.read_csv(data, delim_whitespace=True, index_col="Element")
+    perc = ox_states.loc[atom] / ox_states.loc[atom].sum() * 100
+    charges = [int(k) for k, v in perc.items() if v > charge_tol]
+    return max(charges)
+
 
 
 def charge_identity(atom: str, charge_tol: float) -> str:
